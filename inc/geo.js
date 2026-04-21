@@ -35,6 +35,7 @@ class Geo {
       stops: L.layerGroup(), // Pour les icônes d'arrêts de bus
       route: L.layerGroup(), // Pour le tracé rouge du bus
       clicked: L.layerGroup(), // Pour le point cliqué
+      walking: L.layerGroup(), // Pour le tracé de l'itinéraire piéton
     };
     this.activeMarker = null; // Pour stocker le marqueur de la position cliquée (si besoin)
 
@@ -164,6 +165,7 @@ class Geo {
     this.layers.stops.addTo(this.map);
     this.layers.route.addTo(this.map);
     this.layers.clicked.addTo(this.map);
+  this.layers.walking.addTo(this.map);
 
     // Marqueur fixe pour notre position initiale
     L.marker([latitude, longitude], { icon: this.icons.user }).addTo(this.map);
@@ -316,8 +318,65 @@ class Geo {
       // 4. Gestion de la fermeture
       $panel.querySelector(".close-panel").addEventListener("click", () => {
         $panel.classList.add("hidden");
-        this.layers.walking.clearLayers(); // On efface le tracé bleu aussi
+        if (this.layers.walking) this.layers.walking.clearLayers(); // On efface le tracé bleu aussi
       });
+
+      // Dès que l'arrêt est cliqué, on trace aussi l'itinéraire piéton depuis la dernière position connue
+      try {
+        // S'assure qu'on a bien une position de départ
+        const from = this.lastPosition || { coords: { latitude: userPos.lat, longitude: userPos.lng } };
+        const lat1 = from.coords.latitude;
+        const lon1 = from.coords.longitude;
+        const lat2 = stop.coordinates.lat;
+        const lon2 = stop.coordinates.lon;
+
+        // Efface l'ancien tracé piéton
+        this.layers.walking.clearLayers();
+
+        // Requête à l'API publique OSRM (profil walking)
+        const osrmUrl = `https://router.project-osrm.org/route/v1/walking/${lon1},${lat1};${lon2},${lat2}?overview=full&geometries=geojson`;
+        const res = await fetch(osrmUrl);
+        const routeData = await res.json();
+
+        if (routeData && routeData.routes && routeData.routes.length > 0) {
+          const route = routeData.routes[0];
+          const coords = route.geometry.coordinates.map((c) => [c[1], c[0]]); // geojson [lon,lat] -> [lat,lon]
+
+          // Dessine la ligne bleue de l'itinéraire piéton
+          L.polyline(coords, { color: "blue", weight: 6, opacity: 0.8 }).addTo(this.layers.walking);
+
+          // Ajoute un marqueur de départ et d'arrivée sur le calque walking
+          L.marker([lat1, lon1], { icon: this.icons.user }).bindPopup("Départ").addTo(this.layers.walking);
+          L.marker([lat2, lon2], { icon: this.icons.stop }).bindPopup(stop.stop_name).addTo(this.layers.walking);
+
+          // Recentre la carte pour montrer l'itinéraire
+          this.map.fitBounds(coords, { padding: [50, 50] });
+
+          // Affiche la distance à parcourir dans le panneau (en m ou km)
+          const dist = route.distance; // en mètres
+          const distText = dist > 1000 ? (dist / 1000).toFixed(2) + ' km' : Math.round(dist) + ' m';
+          // Supprime l'info précédente si présente
+          const prevInfo = $panel.querySelector('.walking-info');
+          if (prevInfo) prevInfo.remove();
+
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'walking-info';
+
+          // Estimation du temps de marche à 4 km/h (4000 m/h)
+          const estMinutes = Math.round((dist / 4000) * 60); // minutes arrondies
+          let estText = `${estMinutes} min`;
+          if (estMinutes >= 60) {
+            const h = Math.floor(estMinutes / 60);
+            const m = estMinutes % 60;
+            estText = m === 0 ? `${h} h` : `${h} h ${m} min`;
+          }
+
+          infoDiv.innerHTML = `<hr><strong>À pied :</strong> ${distText}<br><small>Est. ${estText}</small>`;
+          $panel.querySelector('.bus-list').insertAdjacentElement('afterend', infoDiv);
+        }
+      } catch (err) {
+        console.error('Erreur OSRM itinéraire :', err);
+      }
     });
   }
 
