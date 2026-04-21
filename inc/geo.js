@@ -165,7 +165,7 @@ class Geo {
     this.layers.stops.addTo(this.map);
     this.layers.route.addTo(this.map);
     this.layers.clicked.addTo(this.map);
-  this.layers.walking.addTo(this.map);
+    this.layers.walking.addTo(this.map);
 
     // Marqueur fixe pour notre position initiale
     L.marker([latitude, longitude], { icon: this.icons.user }).addTo(this.map);
@@ -179,14 +179,14 @@ class Geo {
     if (range) {
       range.value = this.distance;
       if (valueLabel) valueLabel.textContent = `${this.distance} km`;
-      range.addEventListener('input', (ev) => {
+      range.addEventListener("input", (ev) => {
         const v = parseFloat(ev.target.value);
         this.distance = v;
         if (valueLabel) valueLabel.textContent = `${v} km`;
         // recharge les arrêts autour de la dernière position connue
         // Masquer la popup d'alerte immédiatement
-        const alertBox = document.querySelector('.box-alert');
-        if (alertBox) alertBox.classList.add('hidden');
+        const alertBox = document.querySelector(".box-alert");
+        if (alertBox) alertBox.classList.add("hidden");
 
         if (this.lastPosition) {
           this.loadStops(this.lastPosition, true);
@@ -212,8 +212,8 @@ class Geo {
       );
 
       // Masquer la popup d'alerte immédiatement lorsque l'utilisateur clique ailleurs
-      const alertBox = document.querySelector('.box-alert');
-      if (alertBox) alertBox.classList.add('hidden');
+      const alertBox = document.querySelector(".box-alert");
+      if (alertBox) alertBox.classList.add("hidden");
 
       // On charge les arrêts autour de la position cliquée
       this.loadStops(this.lastPosition, true);
@@ -228,7 +228,7 @@ class Geo {
     this.lastPosition = position; // Sauvegarde pour les calculs d'itinéraires piétons
 
     // Référence à la popup d'alerte (si présente)
-    const alertBox = document.querySelector('.box-alert');
+    const alertBox = document.querySelector(".box-alert");
 
     // Nettoyage avant de charger de nouveaux points
     this.layers.stops.clearLayers();
@@ -244,13 +244,13 @@ class Geo {
 
       if (data.results && data.results.length > 0) {
         // Si on avait un message d'alerte visible, le cacher
-        if (alertBox) alertBox.classList.add('hidden');
+        if (alertBox) alertBox.classList.add("hidden");
 
         // Pour chaque arrêt trouvé par l'API, on crée son marqueur
         data.results.forEach((stop) => this._renderStopMarker(stop));
       } else {
         // Si aucun arrêt, on affiche notre message d'alerte HTML
-        if (alertBox) alertBox.classList.remove('hidden');
+        if (alertBox) alertBox.classList.remove("hidden");
       }
     } catch (error) {
       console.error("Erreur lors de la récupération des arrêts :", error);
@@ -324,7 +324,9 @@ class Geo {
       // Dès que l'arrêt est cliqué, on trace aussi l'itinéraire piéton depuis la dernière position connue
       try {
         // S'assure qu'on a bien une position de départ
-        const from = this.lastPosition || { coords: { latitude: userPos.lat, longitude: userPos.lng } };
+        const from = this.lastPosition || {
+          coords: { latitude: userPos.lat, longitude: userPos.lng },
+        };
         const lat1 = from.coords.latitude;
         const lon1 = from.coords.longitude;
         const lat2 = stop.coordinates.lat;
@@ -343,24 +345,33 @@ class Geo {
           const coords = route.geometry.coordinates.map((c) => [c[1], c[0]]); // geojson [lon,lat] -> [lat,lon]
 
           // Dessine la ligne bleue de l'itinéraire piéton
-          L.polyline(coords, { color: "blue", weight: 6, opacity: 0.8 }).addTo(this.layers.walking);
+          L.polyline(coords, { color: "blue", weight: 6, opacity: 0.8 }).addTo(
+            this.layers.walking,
+          );
 
           // Ajoute un marqueur de départ et d'arrivée sur le calque walking
-          L.marker([lat1, lon1], { icon: this.icons.user }).bindPopup("Départ").addTo(this.layers.walking);
-          L.marker([lat2, lon2], { icon: this.icons.stop }).bindPopup(stop.stop_name).addTo(this.layers.walking);
+          L.marker([lat1, lon1], { icon: this.icons.user })
+            .bindPopup("Départ")
+            .addTo(this.layers.walking);
+          L.marker([lat2, lon2], { icon: this.icons.stop })
+            .bindPopup(stop.stop_name)
+            .addTo(this.layers.walking);
 
           // Recentre la carte pour montrer l'itinéraire
           this.map.fitBounds(coords, { padding: [50, 50] });
 
           // Affiche la distance à parcourir dans le panneau (en m ou km)
           const dist = route.distance; // en mètres
-          const distText = dist > 1000 ? (dist / 1000).toFixed(2) + ' km' : Math.round(dist) + ' m';
+          const distText =
+            dist > 1000
+              ? (dist / 1000).toFixed(2) + " km"
+              : Math.round(dist) + " m";
           // Supprime l'info précédente si présente
-          const prevInfo = $panel.querySelector('.walking-info');
+          const prevInfo = $panel.querySelector(".walking-info");
           if (prevInfo) prevInfo.remove();
 
-          const infoDiv = document.createElement('div');
-          infoDiv.className = 'walking-info';
+          const infoDiv = document.createElement("div");
+          infoDiv.className = "walking-info";
 
           // Estimation du temps de marche à 4 km/h (4000 m/h)
           const estMinutes = Math.round((dist / 4000) * 60); // minutes arrondies
@@ -372,10 +383,12 @@ class Geo {
           }
 
           infoDiv.innerHTML = `<hr><strong>À pied :</strong> ${distText}<br><small>Est. ${estText}</small>`;
-          $panel.querySelector('.bus-list').insertAdjacentElement('afterend', infoDiv);
+          $panel
+            .querySelector(".bus-list")
+            .insertAdjacentElement("afterend", infoDiv);
         }
       } catch (err) {
-        console.error('Erreur OSRM itinéraire :', err);
+        console.error("Erreur OSRM itinéraire :", err);
       }
     });
   }
