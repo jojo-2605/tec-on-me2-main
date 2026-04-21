@@ -172,12 +172,12 @@ class Geo {
     this.loadStops(position);
 
     // Contrôle de distance (si présent dans le DOM) : met à jour this.distance et recharge
-    const range = document.getElementById('distance-range');
-    const valueLabel = document.getElementById('distance-value');
+    const range = document.getElementById("distance-range");
+    const valueLabel = document.getElementById("distance-value");
     if (range) {
       range.value = this.distance;
       if (valueLabel) valueLabel.textContent = `${this.distance} km`;
-      range.addEventListener('input', (ev) => {
+      range.addEventListener("input", (ev) => {
         const v = parseFloat(ev.target.value);
         this.distance = v;
         if (valueLabel) valueLabel.textContent = `${v} km`;
