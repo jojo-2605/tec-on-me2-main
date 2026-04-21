@@ -147,27 +147,33 @@ class Geo {
   _stopId(stop) {
     // Compose un identifiant stable à partir du nom et des coordonnées
     const name = (stop.stop_name || "stop").replace(/\s+/g, "_");
-    const lat = (stop.coordinates && stop.coordinates.lat) ? stop.coordinates.lat.toFixed(6) : "0";
-    const lon = (stop.coordinates && stop.coordinates.lon) ? stop.coordinates.lon.toFixed(6) : "0";
+    const lat =
+      stop.coordinates && stop.coordinates.lat
+        ? stop.coordinates.lat.toFixed(6)
+        : "0";
+    const lon =
+      stop.coordinates && stop.coordinates.lon
+        ? stop.coordinates.lon.toFixed(6)
+        : "0";
     return `${name}__${lat}_${lon}`;
   }
 
   _getFavorites() {
     try {
-      const raw = localStorage.getItem('favoriteStops');
+      const raw = localStorage.getItem("favoriteStops");
       if (!raw) return [];
       return JSON.parse(raw);
     } catch (e) {
-      console.warn('Impossible d\'accéder à localStorage', e);
+      console.warn("Impossible d'accéder à localStorage", e);
       return [];
     }
   }
 
   _saveFavorites(list) {
     try {
-      localStorage.setItem('favoriteStops', JSON.stringify(list));
+      localStorage.setItem("favoriteStops", JSON.stringify(list));
     } catch (e) {
-      console.warn('Impossible d\'écrire dans localStorage', e);
+      console.warn("Impossible d'écrire dans localStorage", e);
     }
   }
 
@@ -208,29 +214,29 @@ class Geo {
   // ----- FAVORIS POUR LES LIGNES (localStorage key: favoriteLines) -----
   _lineId(bus) {
     // Préfère shape_id si présent, sinon route_id
-    if (!bus) return 'unknown_line';
+    if (!bus) return "unknown_line";
     if (bus.shape_id) return `shape__${bus.shape_id}`;
     if (bus.route_id) return `route__${bus.route_id}`;
     // Fallback: nom + court
-    return `line__${(bus.route_short_name || 'line').replace(/\s+/g, '_')}`;
+    return `line__${(bus.route_short_name || "line").replace(/\s+/g, "_")}`;
   }
 
   _getFavoriteLines() {
     try {
-      const raw = localStorage.getItem('favoriteLines');
+      const raw = localStorage.getItem("favoriteLines");
       if (!raw) return [];
       return JSON.parse(raw);
     } catch (e) {
-      console.warn('Impossible d\'accéder à localStorage (lines)', e);
+      console.warn("Impossible d'accéder à localStorage (lines)", e);
       return [];
     }
   }
 
   _saveFavoriteLines(list) {
     try {
-      localStorage.setItem('favoriteLines', JSON.stringify(list));
+      localStorage.setItem("favoriteLines", JSON.stringify(list));
     } catch (e) {
-      console.warn('Impossible d\'écrire dans localStorage (lines)', e);
+      console.warn("Impossible d'écrire dans localStorage (lines)", e);
     }
   }
 
@@ -435,43 +441,52 @@ class Geo {
 
       // --- BOUTONS FAVORIS PAR LIGNE (localStorage favoriteLines) ---
       try {
-        const busListContainer = $panel.querySelector('.bus-list');
+        const busListContainer = $panel.querySelector(".bus-list");
         // Vide le conteneur (on va reconstruire la liste en DOM)
-        busListContainer.innerHTML = '';
+        busListContainer.innerHTML = "";
 
-        if (data && data.code === 'ok' && Array.isArray(data.content) && data.content.length > 0) {
+        if (
+          data &&
+          data.code === "ok" &&
+          Array.isArray(data.content) &&
+          data.content.length > 0
+        ) {
           data.content.forEach((bus) => {
             if (!bus.route_id) return;
 
-            const row = document.createElement('div');
-            row.className = 'bus-row';
+            const row = document.createElement("div");
+            row.className = "bus-row";
 
-            const a = document.createElement('a');
-            a.href = '#';
-            a.className = 'bus-link';
-            a.dataset.shape = bus.shape_id || '';
+            const a = document.createElement("a");
+            a.href = "#";
+            a.className = "bus-link";
+            a.dataset.shape = bus.shape_id || "";
             a.textContent = `${bus.route_short_name} - ${bus.route_long_name}`;
 
-            const favBtn = document.createElement('button');
-            favBtn.className = 'fav-line-btn';
+            const favBtn = document.createElement("button");
+            favBtn.className = "fav-line-btn";
 
             const lineId = this._lineId(bus);
             const updateLineText = () => {
-              favBtn.textContent = this._isLineFavorite(lineId) ? 'Retirer des favoris' : 'Ajouter aux favoris';
+              favBtn.textContent = this._isLineFavorite(lineId)
+                ? "Retirer des favoris"
+                : "Ajouter aux favoris";
             };
             updateLineText();
 
-            favBtn.addEventListener('click', (ev) => {
+            favBtn.addEventListener("click", (ev) => {
               ev.preventDefault();
               const added = this._toggleLineFavorite(lineId);
               updateLineText();
 
               // feedback visuel court
-              let fb = $panel.querySelector('.fav-feedback');
+              let fb = $panel.querySelector(".fav-feedback");
               if (fb) fb.remove();
-              fb = document.createElement('div');
-              fb.className = 'fav-feedback';
-              fb.textContent = added ? 'Ligne ajoutée aux favoris' : 'Ligne retirée des favoris';
+              fb = document.createElement("div");
+              fb.className = "fav-feedback";
+              fb.textContent = added
+                ? "Ligne ajoutée aux favoris"
+                : "Ligne retirée des favoris";
               $panel.appendChild(fb);
               setTimeout(() => fb.remove(), 1800);
             });
@@ -481,10 +496,10 @@ class Geo {
             busListContainer.appendChild(row);
           });
         } else {
-          busListContainer.innerHTML = '<em>Aucune ligne trouvée</em>';
+          busListContainer.innerHTML = "<em>Aucune ligne trouvée</em>";
         }
       } catch (err) {
-        console.warn('Erreur gestion favoris par ligne :', err);
+        console.warn("Erreur gestion favoris par ligne :", err);
       }
 
       // Dès que l'arrêt est cliqué, on trace aussi l'itinéraire piéton depuis la dernière position connue
