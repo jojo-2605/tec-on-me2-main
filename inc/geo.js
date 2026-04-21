@@ -171,6 +171,25 @@ class Geo {
     // On charge les arrêts autour de nous
     this.loadStops(position);
 
+    // Contrôle de distance (si présent dans le DOM) : met à jour this.distance et recharge
+    const range = document.getElementById('distance-range');
+    const valueLabel = document.getElementById('distance-value');
+    if (range) {
+      range.value = this.distance;
+      if (valueLabel) valueLabel.textContent = `${this.distance} km`;
+      range.addEventListener('input', (ev) => {
+        const v = parseFloat(ev.target.value);
+        this.distance = v;
+        if (valueLabel) valueLabel.textContent = `${v} km`;
+        // recharge les arrêts autour de la dernière position connue
+        if (this.lastPosition) {
+          this.loadStops(this.lastPosition, true);
+        } else {
+          this.loadStops(position, false);
+        }
+      });
+    }
+
     //click on map
     this.map.on("click", (e) => {
       this.layers.clicked.clearLayers(); // On efface le marqueur de la position cliquée précédente (s'il existe)

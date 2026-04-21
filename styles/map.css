@@ -39,6 +39,27 @@
   box-shadow: 9px 4px 35px 0px #ffd60099;
   backdrop-filter: blur(8px);
 }
+/* Contrôle de distance (proche des contrôles de zoom) */
+.map-controls {
+  position: absolute;
+  bottom: 2rem;
+  left: 5.2rem; /* placé à droite des contrôles de zoom */
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+}
+.map-controls input[type="range"] {
+  width: 140px;
+}
+#distance-value {
+  color: #fff;
+  font-weight: 600;
+}
 /* CSS pour les boxes */
 .box {
   border: none;
