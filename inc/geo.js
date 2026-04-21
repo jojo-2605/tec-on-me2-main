@@ -225,7 +225,16 @@ class Geo {
     try {
       const raw = localStorage.getItem("favoriteLines");
       if (!raw) return [];
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      // Support legacy array of strings -> convert to objects
+      if (
+        Array.isArray(parsed) &&
+        parsed.length > 0 &&
+        typeof parsed[0] === "string"
+      ) {
+        return parsed.map((s) => ({ id: s, label: s }));
+      }
+      return parsed;
     } catch (e) {
       console.warn("Impossible d'accéder à localStorage (lines)", e);
       return [];
@@ -242,19 +251,31 @@ class Geo {
 
   _isLineFavorite(lineId) {
     const list = this._getFavoriteLines();
-    return list.indexOf(lineId) !== -1;
+    return list.findIndex((item) => item && item.id === lineId) !== -1;
   }
-
-  _toggleLineFavorite(lineId) {
+  // toggleLineFavorite accepts either a lineId string or (recommended) a metadata object {id,label,shape_id,route_id}
+  _toggleLineFavorite(lineIdOrMeta) {
     const list = this._getFavoriteLines();
-    if (list.indexOf(lineId) !== -1) {
-      const next = list.filter((s) => s !== lineId);
+    const meta =
+      typeof lineIdOrMeta === "string"
+        ? { id: lineIdOrMeta, label: lineIdOrMeta }
+        : lineIdOrMeta;
+    const idx = list.findIndex((item) => item && item.id === meta.id);
+    if (idx !== -1) {
+      const next = list.filter((s) => s.id !== meta.id);
       this._saveFavoriteLines(next);
       return false;
     }
-    list.push(lineId);
+    list.push(meta);
     this._saveFavoriteLines(list);
     return true;
+  }
+
+  // Helper to remove by id
+  _removeLineFavoriteById(lineId) {
+    const list = this._getFavoriteLines();
+    const next = list.filter((s) => s.id !== lineId);
+    this._saveFavoriteLines(next);
   }
 
   /**
@@ -284,6 +305,20 @@ class Geo {
     this.layers.route.addTo(this.map);
     this.layers.clicked.addTo(this.map);
     this.layers.walking.addTo(this.map);
+
+    // Ajout d'un bouton "Mes favoris" dans les contrôles de la carte (si présent)
+    const controls = document.querySelector(".map-controls");
+    if (controls && !document.getElementById("favorites-toggle")) {
+      const favToggle = document.createElement("button");
+      favToggle.id = "favorites-toggle";
+      favToggle.className = "favorites-toggle";
+      favToggle.textContent = "Mes favoris";
+      favToggle.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        this.showFavorites();
+      });
+      controls.appendChild(favToggle);
+    }
 
     // Marqueur fixe pour notre position initiale
     L.marker([latitude, longitude], { icon: this.icons.user }).addTo(this.map);
@@ -335,6 +370,93 @@ class Geo {
 
       // On charge les arrêts autour de la position cliquée
       this.loadStops(this.lastPosition, true);
+    });
+  }
+
+  // Ouvre le panneau d'info et affiche la liste des lignes favorites
+  showFavorites() {
+    const $panel = document.querySelector("#info-panel");
+    $panel.innerHTML = `<span class="close-panel">&times;</span><h4>Mes favoris</h4><hr><div class="favorites-list"></div>`;
+    $panel.classList.remove("hidden");
+    // Fermeture
+    $panel.querySelector(".close-panel").addEventListener("click", () => {
+      $panel.classList.add("hidden");
+    });
+
+    this._renderFavoritesPanel();
+  }
+
+  _renderFavoritesPanel() {
+    const $panel = document.querySelector("#info-panel");
+    const container = $panel.querySelector(".favorites-list");
+    if (!container) return;
+
+    const list = this._getFavoriteLines();
+    container.innerHTML = "";
+    if (!list || list.length === 0) {
+      container.innerHTML = "<em>Aucune ligne en favoris</em>";
+      return;
+    }
+
+    list.forEach((fav) => {
+      const row = document.createElement("div");
+      row.className = "fav-row";
+
+      const label = document.createElement("div");
+      label.className = "fav-label";
+      label.textContent = fav.label || fav.id;
+
+      const actions = document.createElement("div");
+      actions.className = "fav-actions";
+
+      const viewBtn = document.createElement("button");
+      viewBtn.className = "fav-view-btn";
+      viewBtn.textContent = "Voir";
+      viewBtn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        // Try to obtain shape id
+        let shapeId = null;
+        if (fav.shape_id) shapeId = fav.shape_id;
+        else if (fav.id && fav.id.startsWith("shape__"))
+          shapeId = fav.id.replace("shape__", "");
+
+        if (shapeId) {
+          // Simulate clicking the line: draw route and close panel
+          this.drawRoute(shapeId);
+          $panel.classList.add("hidden");
+        } else {
+          // No shape available: try fetching by route_id via the API if present
+          if (fav.route_id) {
+            // If your backend supports resolving a route to a shape, call it here.
+            // As fallback, inform the user.
+            console.warn(
+              "No shape_id for this favorite; route_id present:",
+              fav.route_id,
+            );
+            alert("Impossible d'afficher le trajet : shape inconnu.");
+          } else {
+            alert(
+              "Impossible d'afficher le trajet : aucune information de shape disponible.",
+            );
+          }
+        }
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "fav-del-btn";
+      delBtn.textContent = "Supprimer";
+      delBtn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        this._removeLineFavoriteById(fav.id);
+        this._renderFavoritesPanel();
+      });
+
+      actions.appendChild(viewBtn);
+      actions.appendChild(delBtn);
+
+      row.appendChild(label);
+      row.appendChild(actions);
+      container.appendChild(row);
     });
   }
 
@@ -476,7 +598,13 @@ class Geo {
 
             favBtn.addEventListener("click", (ev) => {
               ev.preventDefault();
-              const added = this._toggleLineFavorite(lineId);
+              const meta = {
+                id: lineId,
+                label: `${bus.route_short_name} - ${bus.route_long_name}`,
+                shape_id: bus.shape_id,
+                route_id: bus.route_id,
+              };
+              const added = this._toggleLineFavorite(meta);
               updateLineText();
 
               // feedback visuel court
