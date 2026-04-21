@@ -177,11 +177,15 @@ class Geo {
     if (range) {
       range.value = this.distance;
       if (valueLabel) valueLabel.textContent = `${this.distance} km`;
-      range.addEventListener("input", (ev) => {
+      range.addEventListener('input', (ev) => {
         const v = parseFloat(ev.target.value);
         this.distance = v;
         if (valueLabel) valueLabel.textContent = `${v} km`;
         // recharge les arrêts autour de la dernière position connue
+        // Masquer la popup d'alerte immédiatement
+        const alertBox = document.querySelector('.box-alert');
+        if (alertBox) alertBox.classList.add('hidden');
+
         if (this.lastPosition) {
           this.loadStops(this.lastPosition, true);
         } else {
@@ -205,6 +209,10 @@ class Geo {
         this.layers.clicked,
       );
 
+      // Masquer la popup d'alerte immédiatement lorsque l'utilisateur clique ailleurs
+      const alertBox = document.querySelector('.box-alert');
+      if (alertBox) alertBox.classList.add('hidden');
+
       // On charge les arrêts autour de la position cliquée
       this.loadStops(this.lastPosition, true);
     });
@@ -216,6 +224,9 @@ class Geo {
    */
   async loadStops(position, showClickMarker = false) {
     this.lastPosition = position; // Sauvegarde pour les calculs d'itinéraires piétons
+
+    // Référence à la popup d'alerte (si présente)
+    const alertBox = document.querySelector('.box-alert');
 
     // Nettoyage avant de charger de nouveaux points
     this.layers.stops.clearLayers();
@@ -230,11 +241,14 @@ class Geo {
       const data = await response.json();
 
       if (data.results && data.results.length > 0) {
+        // Si on avait un message d'alerte visible, le cacher
+        if (alertBox) alertBox.classList.add('hidden');
+
         // Pour chaque arrêt trouvé par l'API, on crée son marqueur
         data.results.forEach((stop) => this._renderStopMarker(stop));
       } else {
         // Si aucun arrêt, on affiche notre message d'alerte HTML
-        document.querySelector(".box-alert").classList.remove("hidden");
+        if (alertBox) alertBox.classList.remove('hidden');
       }
     } catch (error) {
       console.error("Erreur lors de la récupération des arrêts :", error);
