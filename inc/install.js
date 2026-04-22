@@ -8,10 +8,16 @@ console.log("install.js loaded");
 function isiOS() {
   return /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
 }
+function isAndroid() {
+  return /android/.test(navigator.userAgent.toLowerCase());
+}
+function isMobile() {
+  return /iphone|ipad|ipod|android/.test(navigator.userAgent.toLowerCase());
+}
 
-// Cache le bouton par défaut (s'il est visible dans le HTML)
-if (installBtn) {
-  installBtn.style.display = "none";
+// Show the install button on mobile devices so user sees it immediately.
+if (installBtn && isMobile()) {
+  installBtn.style.display = "inline-block";
 }
 
 window.addEventListener("beforeinstallprompt", (e) => {
@@ -21,46 +27,56 @@ window.addEventListener("beforeinstallprompt", (e) => {
   // Affiche le bouton d'installation
   if (installBtn) {
     installBtn.style.display = "inline-block";
+    installBtn.disabled = false;
+    installBtn.textContent = 'Installer';
   }
 });
 
 // Clic sur le bouton
 if (installBtn) {
+  // If we showed the button early but the prompt isn't ready yet, keep it enabled
+  // clicking will either trigger the prompt (when available) or show helpful instructions.
   installBtn.addEventListener("click", async (ev) => {
-    // Si le prompt est disponible, l'afficher
+    // If the prompt is available, show it
     if (deferredPrompt) {
-      installBtn.disabled = true;
-      deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
-      // Masque le bouton après choix
-      installBtn.style.display = "none";
-      // Si l'utilisateur a accepté l'installation, cacher la box entière
       try {
+        installBtn.disabled = true;
+        deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        // Hide the button after choice
+        installBtn.style.display = "none";
         if (choice && choice.outcome === "accepted") {
           const installBox = document.querySelector(".box-install");
           if (installBox) installBox.style.display = "none";
         }
+        deferredPrompt = null;
       } catch (err) {
-        // ignore
+        console.warn('Erreur lors du prompt d\'installation', err);
+      } finally {
+        installBtn.disabled = false;
       }
-      deferredPrompt = null;
-      installBtn.disabled = false;
-      console.log("PWA install choice:", choice);
       return;
     }
 
-    // Si iOS (pas de beforeinstallprompt), afficher une instruction courte
+    // If iOS, show the manual instruction
     if (isiOS()) {
-      // Message discret expliquant l'ajout à l'écran d'accueil
       window.alert(
         "Sur iOS : appuyez sur le bouton 'Partager' puis 'Ajouter à l'écran d'accueil'.",
       );
       return;
     }
 
-    // Fallback : informer l'utilisateur
+    // If Android but no prompt yet, give a helpful message explaining why and how to enable
+    if (isAndroid()) {
+      window.alert(
+        "L'installation n'est pas encore disponible automatiquement. Assurez-vous d'ouvrir le site via HTTPS et d'actualiser la page. Si le problème persiste, ouvrez le menu Chrome et sélectionnez 'Ajouter à l'écran d'accueil' (si disponible).",
+      );
+      return;
+    }
+
+    // Generic fallback
     window.alert(
-      "L’installation n’est pas disponible pour ce navigateur/ce contexte. Utilisez Chrome sur Android ou ouvrez via Live Server (localhost).",
+      "L’installation n’est pas disponible pour ce navigateur/ce contexte. Essayez Chrome sur Android ou vérifiez que le site est servi via HTTPS.",
     );
   });
 }
