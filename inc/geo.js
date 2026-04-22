@@ -412,7 +412,8 @@ class Geo {
       favToggle.type = "button";
       favToggle.title = "Mes favoris";
       // Étoile + texte
-      favToggle.innerHTML = '<span class="fav-icon">★</span><span class="fav-label">Favoris</span>';
+      favToggle.innerHTML =
+        '<span class="fav-icon">★</span><span class="fav-label">Favoris</span>';
       favToggle.addEventListener("click", (ev) => {
         ev.preventDefault();
         this.showFavorites();
@@ -557,20 +558,23 @@ class Geo {
       });
 
       // Bouton pour démarrer le suivi directement depuis les favoris
-      const followFavBtn = document.createElement('button');
-      followFavBtn.className = 'fav-follow-btn';
-      followFavBtn.textContent = 'Suivre';
-      followFavBtn.addEventListener('click', (ev) => {
+      const followFavBtn = document.createElement("button");
+      followFavBtn.className = "fav-follow-btn";
+      followFavBtn.textContent = "Suivre";
+      followFavBtn.addEventListener("click", (ev) => {
         ev.preventDefault();
         let shapeId = null;
         if (fav.shape_id) shapeId = fav.shape_id;
-        else if (fav.id && fav.id.startsWith('shape__')) shapeId = fav.id.replace('shape__', '');
+        else if (fav.id && fav.id.startsWith("shape__"))
+          shapeId = fav.id.replace("shape__", "");
         if (shapeId) {
           // draw route and start following the route's last point
           this.drawRoute(shapeId, true);
-          $panel.classList.add('hidden');
+          $panel.classList.add("hidden");
         } else {
-          alert('Impossible de démarrer le suivi : shape inconnu pour cette favorite.');
+          alert(
+            "Impossible de démarrer le suivi : shape inconnu pour cette favorite.",
+          );
         }
       });
 
@@ -677,23 +681,32 @@ class Geo {
         `;
 
       // Ajout du bouton de suivi (commencer / arrêter)
-      const followBtn = document.createElement('button');
-      followBtn.className = 'follow-btn';
+      const followBtn = document.createElement("button");
+      followBtn.className = "follow-btn";
       const updateFollowText = () => {
-        const isFollowingHere = this.followingRoute && this.currentDestination &&
-          this.currentDestination.lat === stop.coordinates.lat && this.currentDestination.lng === stop.coordinates.lon;
-        followBtn.textContent = isFollowingHere ? 'Arrêter le suivi' : 'Commencer le suivi';
+        const isFollowingHere =
+          this.followingRoute &&
+          this.currentDestination &&
+          this.currentDestination.lat === stop.coordinates.lat &&
+          this.currentDestination.lng === stop.coordinates.lon;
+        followBtn.textContent = isFollowingHere
+          ? "Arrêter le suivi"
+          : "Commencer le suivi";
       };
       updateFollowText();
-      followBtn.addEventListener('click', (ev) => {
+      followBtn.addEventListener("click", (ev) => {
         ev.preventDefault();
         // Toggle following to this stop
         const dest = L.latLng(stop.coordinates.lat, stop.coordinates.lon);
-        if (this.followingRoute && this.currentDestination && this.currentDestination.equals(dest)) {
+        if (
+          this.followingRoute &&
+          this.currentDestination &&
+          this.currentDestination.equals(dest)
+        ) {
           // Stop
           this.followingRoute = false;
           this.currentDestination = null;
-          followBtn.textContent = 'Commencer le suivi';
+          followBtn.textContent = "Commencer le suivi";
         } else {
           // Start following
           this.currentDestination = dest;
@@ -702,14 +715,17 @@ class Geo {
           this._startWatchingPosition();
           // Center map on user so they see their movement
           if (this.lastPosition) {
-            this.map.panTo([this.lastPosition.coords.latitude, this.lastPosition.coords.longitude]);
+            this.map.panTo([
+              this.lastPosition.coords.latitude,
+              this.lastPosition.coords.longitude,
+            ]);
           }
-          followBtn.textContent = 'Arrêter le suivi';
+          followBtn.textContent = "Arrêter le suivi";
         }
       });
       // Insert follow button after title
-      const titleEl = $panel.querySelector('h4');
-      if (titleEl) titleEl.insertAdjacentElement('afterend', followBtn);
+      const titleEl = $panel.querySelector("h4");
+      if (titleEl) titleEl.insertAdjacentElement("afterend", followBtn);
 
       // 3. Affichage (en retirant la classe hidden)
       $panel.classList.remove("hidden");
@@ -909,7 +925,10 @@ class Geo {
             this.followingRoute = true;
             this._startWatchingPosition();
             if (this.lastPosition) {
-              this.map.panTo([this.lastPosition.coords.latitude, this.lastPosition.coords.longitude]);
+              this.map.panTo([
+                this.lastPosition.coords.latitude,
+                this.lastPosition.coords.longitude,
+              ]);
             }
           } catch (e) {
             // ignore
