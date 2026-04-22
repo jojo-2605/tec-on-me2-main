@@ -1,8 +1,10 @@
 /* CSS pour la carte */
 #map {
-  height: 100vh;
+  /* Use dynamic viewport height where supported to avoid mobile UI chrome issues */
+  height: 100dvh;
+  min-height: 100vh; /* fallback for older browsers */
   border: 1px solid black;
-  transition: all 2s;
+  transition: all 0.3s ease;
 }
 .page {
   font-family: "inter", sans-serif;
@@ -52,6 +54,55 @@
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.35);
   color: #fff;
+}
+
+/* Mobile specific adjustments */
+@media (max-width: 600px) {
+  /* Make the map fill the screen accounting for mobile chrome */
+  #map {
+    height: 100dvh;
+  }
+
+  /* Make controls larger and reachable */
+  .leaflet-control-zoom a {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px !important;
+    font-size: 20px;
+  }
+
+  /* Move map-controls slightly up so they don't overlap with favorites button */
+  .map-controls {
+    bottom: 5.2rem;
+    left: 0.9rem;
+    padding: 8px 10px;
+  }
+
+  /* Favorites floating button smaller on narrow screens */
+  .favorites-toggle {
+    width: 48px;
+    height: 48px;
+    right: 0.9rem;
+    bottom: 0.9rem;
+    font-size: 22px;
+  }
+
+  /* Ensure info-panel content is touch-friendly */
+  .info-panel {
+    padding: 16px;
+  }
+
+  .info-panel h4 {
+    font-size: 1.1rem;
+  }
+
+  .fav-row .fav-actions button,
+  .bus-row .fav-line-btn,
+  .fav-view-btn,
+  .fav-del-btn {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
 }
 .map-controls input[type="range"] {
   width: 140px;

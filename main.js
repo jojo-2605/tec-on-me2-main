@@ -3,15 +3,7 @@ import { Geo } from "./inc/geo.js";
 // install handler (PWA)
 import "./inc/install.js";
 //Gestion du bouton d'installation
-// register service worker to enable PWA install on supported browsers
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then((reg) => console.log("Service worker registered.", reg))
-      .catch((err) => console.warn("Service worker registration failed:", err));
-  });
-}
+// install handler (no service worker registration for mobile compatibility requested)
 
 //gestion des fermetures des boxes
 import boxClose from "./inc/box.js";
