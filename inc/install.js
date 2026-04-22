@@ -20,6 +20,18 @@ if (installBtn && isMobile()) {
   installBtn.style.display = "inline-block";
 }
 
+// If the app is already running as PWA (standalone), hide the install box on mobile
+try {
+  const isStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (isMobile() && isStandalone) {
+    const installBox = document.querySelector('.box-install');
+    if (installBox) installBox.style.display = 'none';
+    if (installBtn) installBtn.style.display = 'none';
+  }
+} catch (e) {
+  // ignore
+}
+
 window.addEventListener("beforeinstallprompt", (e) => {
   // Empêche l'infobar par défaut
   e.preventDefault();

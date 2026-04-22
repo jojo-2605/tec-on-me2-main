@@ -74,7 +74,7 @@
   /* Move map-controls slightly up so they don't overlap with favorites button */
   .map-controls {
     bottom: 5.2rem;
-    left: 0.9rem;
+    left: calc(1rem + 46px + 0.5rem); /* place to the right of zoom controls */
     padding: 8px 10px;
   }
 
@@ -103,6 +103,26 @@
     padding: 8px 10px;
     font-size: 14px;
   }
+}
+
+/* When favorites button is placed inside .map-controls, make it compact and same visual scale */
+.map-controls .favorites-toggle {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font-size: 14px;
+  box-shadow: none;
+  line-height: 1;
+  margin-left: 6px;
+}
+
+/* ensure the range input and button align nicely */
+.map-controls input[type="range"] {
+  vertical-align: middle;
 }
 .map-controls input[type="range"] {
   width: 140px;
