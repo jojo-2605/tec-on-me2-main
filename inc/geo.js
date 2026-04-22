@@ -98,7 +98,14 @@ class Geo {
   }
 
   // Helper: fetch walking route from OSRM and draw it on the walking layer
-  async _fetchAndDrawWalkingRoute(lat1, lon1, lat2, lon2, stop = null, panelEl = null) {
+  async _fetchAndDrawWalkingRoute(
+    lat1,
+    lon1,
+    lat2,
+    lon2,
+    stop = null,
+    panelEl = null,
+  ) {
     try {
       // Clear previous walking visuals
       if (this.layers.walking) this.layers.walking.clearLayers();
@@ -126,10 +133,14 @@ class Geo {
         }).addTo(this.layers.walking);
 
         // start / end markers
-        this.walkingStartMarker = L.marker([lat1, lon1], { icon: this.icons.user })
+        this.walkingStartMarker = L.marker([lat1, lon1], {
+          icon: this.icons.user,
+        })
           .bindPopup("Départ")
           .addTo(this.layers.walking);
-        this.walkingEndMarker = L.marker([lat2, lon2], { icon: this.icons.stop })
+        this.walkingEndMarker = L.marker([lat2, lon2], {
+          icon: this.icons.stop,
+        })
           .bindPopup(stop ? stop.stop_name : "Arrivée")
           .addTo(this.layers.walking);
 
@@ -141,7 +152,10 @@ class Geo {
         // If a panel element was passed, show distance/time info
         if (panelEl && route.distance != null) {
           const dist = route.distance; // meters
-          const distText = dist > 1000 ? (dist / 1000).toFixed(2) + " km" : Math.round(dist) + " m";
+          const distText =
+            dist > 1000
+              ? (dist / 1000).toFixed(2) + " km"
+              : Math.round(dist) + " m";
           const estMinutes = Math.round((dist / 4000) * 60);
           let estText = `${estMinutes} min`;
           if (estMinutes >= 60) {
@@ -150,17 +164,17 @@ class Geo {
             estText = m === 0 ? `${h} h` : `${h} h ${m} min`;
           }
           // remove previous
-          const prevInfo = panelEl.querySelector('.walking-info');
+          const prevInfo = panelEl.querySelector(".walking-info");
           if (prevInfo) prevInfo.remove();
-          const infoDiv = document.createElement('div');
-          infoDiv.className = 'walking-info';
+          const infoDiv = document.createElement("div");
+          infoDiv.className = "walking-info";
           infoDiv.innerHTML = `<hr><strong>À pied :</strong> ${distText}<br><small>Est. ${estText}</small>`;
-          const busList = panelEl.querySelector('.bus-list');
-          if (busList) busList.insertAdjacentElement('afterend', infoDiv);
+          const busList = panelEl.querySelector(".bus-list");
+          if (busList) busList.insertAdjacentElement("afterend", infoDiv);
         }
       }
     } catch (err) {
-      console.error('Erreur OSRM itinéraire (helper) :', err);
+      console.error("Erreur OSRM itinéraire (helper) :", err);
     }
   }
 
@@ -825,16 +839,22 @@ class Geo {
           // Draw walking route from lastPosition to destination if not present
           (async () => {
             try {
-              const from =
-                this.lastPosition ||
-                ({ coords: { latitude: userPos.lat, longitude: userPos.lng } });
+              const from = this.lastPosition || {
+                coords: { latitude: userPos.lat, longitude: userPos.lng },
+              };
               const lat1 = from.coords.latitude;
               const lon1 = from.coords.longitude;
               const lat2 = stop.coordinates.lat;
               const lon2 = stop.coordinates.lon;
-              await this._fetchAndDrawWalkingRoute(lat1, lon1, lat2, lon2, stop);
+              await this._fetchAndDrawWalkingRoute(
+                lat1,
+                lon1,
+                lat2,
+                lon2,
+                stop,
+              );
             } catch (e) {
-              console.warn('Erreur lors du tracé du trajet à pied (suivi)', e);
+              console.warn("Erreur lors du tracé du trajet à pied (suivi)", e);
             }
           })();
           // Center map on user so they see their movement
@@ -959,7 +979,14 @@ class Geo {
         const lon2 = stop.coordinates.lon;
 
         // Draw the walking route (helper handles drawing & info block)
-        await this._fetchAndDrawWalkingRoute(lat1, lon1, lat2, lon2, stop, $panel);
+        await this._fetchAndDrawWalkingRoute(
+          lat1,
+          lon1,
+          lat2,
+          lon2,
+          stop,
+          $panel,
+        );
       } catch (err) {
         console.error("Erreur OSRM itinéraire :", err);
       }
