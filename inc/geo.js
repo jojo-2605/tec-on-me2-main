@@ -27,11 +27,11 @@ class Geo {
     this.map = null; // Contiendra l'objet Leaflet une fois créé
     this.distance = 1; // Rayon de recherche par défaut (1km)
     this.lastPosition = null; // Stocke les dernières coordonnées pour les calculs
-  this.userMarker = null; // Marqueur représentant l'utilisateur sur la carte
-  this.watchId = null; // id du watchPosition
-  this.followingRoute = false; // si vrai, on suit la progression vers une destination
-  this.currentDestination = null; // L.latLng de la destination suivie
-  this.arrivalThreshold = 12; // distance en mètres pour considérer l'arrivée
+    this.userMarker = null; // Marqueur représentant l'utilisateur sur la carte
+    this.watchId = null; // id du watchPosition
+    this.followingRoute = false; // si vrai, on suit la progression vers une destination
+    this.currentDestination = null; // L.latLng de la destination suivie
+    this.arrivalThreshold = 12; // distance en mètres pour considérer l'arrivée
 
     // --- LES CALQUES (LAYER GROUPS) ---
     // On crée des "tiroirs" pour ranger nos éléments.
@@ -81,7 +81,7 @@ class Geo {
     try {
       this.watchId = navigator.geolocation.watchPosition(
         (pos) => this._onPositionUpdate(pos),
-        (err) => console.warn('watchPosition erreur', err),
+        (err) => console.warn("watchPosition erreur", err),
         {
           enableHighAccuracy: true,
           maximumAge: 1000,
@@ -89,7 +89,7 @@ class Geo {
         },
       );
     } catch (e) {
-      console.warn('Impossible de démarrer watchPosition', e);
+      console.warn("Impossible de démarrer watchPosition", e);
     }
   }
 
@@ -115,7 +115,9 @@ class Geo {
     if (this.userMarker) {
       this.userMarker.setLatLng([lat, lon]);
     } else {
-      this.userMarker = L.marker([lat, lon], { icon: this.icons.user }).addTo(this.map);
+      this.userMarker = L.marker([lat, lon], { icon: this.icons.user }).addTo(
+        this.map,
+      );
     }
 
     // Si on suit un itinéraire, centrer légèrement la vue sur l'utilisateur
@@ -147,10 +149,10 @@ class Geo {
   _showArrivalMessage() {
     // Crée un message temporaire fixé en bas-center
     try {
-      let msg = document.querySelector('.arrival-msg');
+      let msg = document.querySelector(".arrival-msg");
       if (msg) msg.remove();
-      msg = document.createElement('div');
-      msg.className = 'arrival-msg';
+      msg = document.createElement("div");
+      msg.className = "arrival-msg";
       msg.textContent = "vous êtes arriver a destination";
       document.body.appendChild(msg);
       // Supprime après 4s
@@ -158,7 +160,7 @@ class Geo {
         if (msg) msg.remove();
       }, 4000);
     } catch (e) {
-      alert('vous êtes arriver a destination');
+      alert("vous êtes arriver a destination");
     }
   }
 
@@ -415,11 +417,13 @@ class Geo {
       controls.appendChild(favToggle);
     }
 
-  // Marqueur fixe pour notre position initiale (on le stocke pour pouvoir le déplacer)
-  this.userMarker = L.marker([latitude, longitude], { icon: this.icons.user }).addTo(this.map);
+    // Marqueur fixe pour notre position initiale (on le stocke pour pouvoir le déplacer)
+    this.userMarker = L.marker([latitude, longitude], {
+      icon: this.icons.user,
+    }).addTo(this.map);
 
-  // Démarre le suivi en continu (watchPosition) pour mettre à jour la position utilisateur
-  this._startWatchingPosition();
+    // Démarre le suivi en continu (watchPosition) pour mettre à jour la position utilisateur
+    this._startWatchingPosition();
 
     // On charge les arrêts autour de nous
     this.loadStops(position);
@@ -752,7 +756,7 @@ class Geo {
         const res = await fetch(osrmUrl);
         const routeData = await res.json();
 
-          if (routeData && routeData.routes && routeData.routes.length > 0) {
+        if (routeData && routeData.routes && routeData.routes.length > 0) {
           const route = routeData.routes[0];
           const coords = route.geometry.coordinates.map((c) => [c[1], c[0]]); // geojson [lon,lat] -> [lat,lon]
 
