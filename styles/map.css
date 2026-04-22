@@ -88,6 +88,14 @@
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
 }
 
+/* Avoid cutting the pill on very small screens */
+.favorites-toggle {
+  max-width: calc(100% - 2rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Mobile specific adjustments */
 @media (max-width: 600px) {
   /* Make the map fill the screen accounting for mobile chrome */
@@ -112,11 +120,12 @@
 
   /* Favorites floating button smaller on narrow screens */
   .favorites-toggle {
-    width: 48px;
-    height: 48px;
-    right: 0.9rem;
-    bottom: 0.9rem;
-    font-size: 22px;
+    /* keep as pill but smaller */
+    padding: 8px 10px;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    font-size: 13px;
+    gap: 6px;
   }
 
   /* Ensure info-panel content is touch-friendly */
@@ -335,4 +344,22 @@ a.bus-link {
   z-index: 13000;
   font-weight: 700;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* Follow button inside stop panel */
+.follow-btn {
+  display: inline-block;
+  margin: 10px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  background: #e9eef0;
+  color: #16323b;
+  font-weight: 700;
+  cursor: pointer;
+}
+.follow-btn.active {
+  background: linear-gradient(90deg, #1777ff 0%, #0056d6 100%);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(23, 119, 255, 0.18);
 }

@@ -42,6 +42,10 @@ class Geo {
       clicked: L.layerGroup(), // Pour le point cliqué
       walking: L.layerGroup(), // Pour le tracé de l'itinéraire piéton
     };
+    this.currentWalkingRouteCoords = null;
+    this.walkingPolyline = null;
+    this.walkingStartMarker = null;
+    this.walkingEndMarker = null;
     this.activeMarker = null; // Pour stocker le marqueur de la position cliquée (si besoin)
 
     // Écouteur global pour les lignes de bus (Délégation d'événement)
@@ -93,6 +97,73 @@ class Geo {
     }
   }
 
+  // Helper: fetch walking route from OSRM and draw it on the walking layer
+  async _fetchAndDrawWalkingRoute(lat1, lon1, lat2, lon2, stop = null, panelEl = null) {
+    try {
+      // Clear previous walking visuals
+      if (this.layers.walking) this.layers.walking.clearLayers();
+      this.currentWalkingRouteCoords = null;
+      this.walkingPolyline = null;
+      this.walkingStartMarker = null;
+      this.walkingEndMarker = null;
+
+      const osrmUrl = `https://router.project-osrm.org/route/v1/walking/${lon1},${lat1};${lon2},${lat2}?overview=full&geometries=geojson`;
+      const res = await fetch(osrmUrl);
+      const routeData = await res.json();
+
+      if (routeData && routeData.routes && routeData.routes.length > 0) {
+        const route = routeData.routes[0];
+        const coords = route.geometry.coordinates.map((c) => [c[1], c[0]]); // [lat,lon]
+
+        // store coords for snapping/trimming while following
+        this.currentWalkingRouteCoords = coords;
+
+        // draw polyline and keep reference
+        this.walkingPolyline = L.polyline(coords, {
+          color: "blue",
+          weight: 6,
+          opacity: 0.85,
+        }).addTo(this.layers.walking);
+
+        // start / end markers
+        this.walkingStartMarker = L.marker([lat1, lon1], { icon: this.icons.user })
+          .bindPopup("Départ")
+          .addTo(this.layers.walking);
+        this.walkingEndMarker = L.marker([lat2, lon2], { icon: this.icons.stop })
+          .bindPopup(stop ? stop.stop_name : "Arrivée")
+          .addTo(this.layers.walking);
+
+        // fit view
+        try {
+          this.map.fitBounds(coords, { padding: [50, 50] });
+        } catch (e) {}
+
+        // If a panel element was passed, show distance/time info
+        if (panelEl && route.distance != null) {
+          const dist = route.distance; // meters
+          const distText = dist > 1000 ? (dist / 1000).toFixed(2) + " km" : Math.round(dist) + " m";
+          const estMinutes = Math.round((dist / 4000) * 60);
+          let estText = `${estMinutes} min`;
+          if (estMinutes >= 60) {
+            const h = Math.floor(estMinutes / 60);
+            const m = estMinutes % 60;
+            estText = m === 0 ? `${h} h` : `${h} h ${m} min`;
+          }
+          // remove previous
+          const prevInfo = panelEl.querySelector('.walking-info');
+          if (prevInfo) prevInfo.remove();
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'walking-info';
+          infoDiv.innerHTML = `<hr><strong>À pied :</strong> ${distText}<br><small>Est. ${estText}</small>`;
+          const busList = panelEl.querySelector('.bus-list');
+          if (busList) busList.insertAdjacentElement('afterend', infoDiv);
+        }
+      }
+    } catch (err) {
+      console.error('Erreur OSRM itinéraire (helper) :', err);
+    }
+  }
+
   _stopWatchingPosition() {
     try {
       if (this.watchId !== null && navigator.geolocation) {
@@ -127,6 +198,42 @@ class Geo {
       } catch (e) {}
     }
 
+    // If following a walking route, snap/optimize the remaining route
+    try {
+      if (
+        this.followingRoute &&
+        this.currentWalkingRouteCoords &&
+        this.currentWalkingRouteCoords.length > 0
+      ) {
+        const userLatLng = L.latLng(lat, lon);
+        // Find nearest point index on currentWalkingRouteCoords
+        let minDist = Infinity;
+        let minIdx = 0;
+        this.currentWalkingRouteCoords.forEach((c, idx) => {
+          const d = userLatLng.distanceTo(L.latLng(c[0], c[1]));
+          if (d < minDist) {
+            minDist = d;
+            minIdx = idx;
+          }
+        });
+
+        // Trim the polyline to remaining coords
+        const remaining = this.currentWalkingRouteCoords.slice(minIdx);
+        if (this.walkingPolyline && remaining.length > 0) {
+          this.walkingPolyline.setLatLngs(remaining);
+        }
+
+        // Move/recreate the start marker to the user's current position for clarity
+        try {
+          if (this.walkingStartMarker) this.walkingStartMarker.remove();
+          this.walkingStartMarker = L.marker([lat, lon], {
+            icon: this.icons.user,
+          }).addTo(this.layers.walking);
+        } catch (e) {}
+      }
+    } catch (e) {
+      // ignore snapping errors
+    }
     // Si on suit une destination, vérifier l'arrivée
     if (this.followingRoute && this.currentDestination) {
       const userLatLng = L.latLng(lat, lon);
@@ -683,17 +790,6 @@ class Geo {
       // Ajout du bouton de suivi (commencer / arrêter)
       const followBtn = document.createElement("button");
       followBtn.className = "follow-btn";
-      const updateFollowText = () => {
-        const isFollowingHere =
-          this.followingRoute &&
-          this.currentDestination &&
-          this.currentDestination.lat === stop.coordinates.lat &&
-          this.currentDestination.lng === stop.coordinates.lon;
-        followBtn.textContent = isFollowingHere
-          ? "Arrêter le suivi"
-          : "Commencer le suivi";
-      };
-      updateFollowText();
       followBtn.addEventListener("click", (ev) => {
         ev.preventDefault();
         // Toggle following to this stop
@@ -707,12 +803,40 @@ class Geo {
           this.followingRoute = false;
           this.currentDestination = null;
           followBtn.textContent = "Commencer le suivi";
+          followBtn.classList.remove("active");
+          // clear walking visuals
+          try {
+            if (this.layers.walking) this.layers.walking.clearLayers();
+            this.currentWalkingRouteCoords = null;
+            this.walkingPolyline = null;
+            this.walkingStartMarker = null;
+            this.walkingEndMarker = null;
+          } catch (e) {}
         } else {
           // Start following
           this.currentDestination = dest;
           this.followingRoute = true;
           // Ensure watch is active
           this._startWatchingPosition();
+          // visually mark follow button active
+          followBtn.textContent = "Arrêter le suivi";
+          followBtn.classList.add("active");
+
+          // Draw walking route from lastPosition to destination if not present
+          (async () => {
+            try {
+              const from =
+                this.lastPosition ||
+                ({ coords: { latitude: userPos.lat, longitude: userPos.lng } });
+              const lat1 = from.coords.latitude;
+              const lon1 = from.coords.longitude;
+              const lat2 = stop.coordinates.lat;
+              const lon2 = stop.coordinates.lon;
+              await this._fetchAndDrawWalkingRoute(lat1, lon1, lat2, lon2, stop);
+            } catch (e) {
+              console.warn('Erreur lors du tracé du trajet à pied (suivi)', e);
+            }
+          })();
           // Center map on user so they see their movement
           if (this.lastPosition) {
             this.map.panTo([
@@ -720,9 +844,22 @@ class Geo {
               this.lastPosition.coords.longitude,
             ]);
           }
-          followBtn.textContent = "Arrêter le suivi";
         }
       });
+      // Reflect active state when rendering popup
+      const updateFollowText = () => {
+        const isFollowingHere =
+          this.followingRoute &&
+          this.currentDestination &&
+          this.currentDestination.lat === stop.coordinates.lat &&
+          this.currentDestination.lng === stop.coordinates.lon;
+        followBtn.textContent = isFollowingHere
+          ? "Arrêter le suivi"
+          : "Commencer le suivi";
+        followBtn.classList.toggle("active", isFollowingHere);
+      };
+      // call once to set initial class
+      updateFollowText();
       // Insert follow button after title
       const titleEl = $panel.querySelector("h4");
       if (titleEl) titleEl.insertAdjacentElement("afterend", followBtn);
@@ -821,64 +958,8 @@ class Geo {
         const lat2 = stop.coordinates.lat;
         const lon2 = stop.coordinates.lon;
 
-        // Efface l'ancien tracé piéton
-        this.layers.walking.clearLayers();
-
-        // Requête à l'API publique OSRM (profil walking)
-        const osrmUrl = `https://router.project-osrm.org/route/v1/walking/${lon1},${lat1};${lon2},${lat2}?overview=full&geometries=geojson`;
-        const res = await fetch(osrmUrl);
-        const routeData = await res.json();
-
-        if (routeData && routeData.routes && routeData.routes.length > 0) {
-          const route = routeData.routes[0];
-          const coords = route.geometry.coordinates.map((c) => [c[1], c[0]]); // geojson [lon,lat] -> [lat,lon]
-
-          // Dessine la ligne bleue de l'itinéraire piéton
-          L.polyline(coords, { color: "blue", weight: 6, opacity: 0.8 }).addTo(
-            this.layers.walking,
-          );
-
-          // Ajoute un marqueur de départ et d'arrivée sur le calque walking
-          L.marker([lat1, lon1], { icon: this.icons.user })
-            .bindPopup("Départ")
-            .addTo(this.layers.walking);
-          L.marker([lat2, lon2], { icon: this.icons.stop })
-            .bindPopup(stop.stop_name)
-            .addTo(this.layers.walking);
-
-          // Recentre la carte pour montrer l'itinéraire
-          this.map.fitBounds(coords, { padding: [50, 50] });
-
-          // Affiche la distance à parcourir dans le panneau (en m ou km)
-          const dist = route.distance; // en mètres
-          const distText =
-            dist > 1000
-              ? (dist / 1000).toFixed(2) + " km"
-              : Math.round(dist) + " m";
-          // Supprime l'info précédente si présente
-          const prevInfo = $panel.querySelector(".walking-info");
-          if (prevInfo) prevInfo.remove();
-
-          const infoDiv = document.createElement("div");
-          infoDiv.className = "walking-info";
-
-          // Estimation du temps de marche à 4 km/h (4000 m/h)
-          const estMinutes = Math.round((dist / 4000) * 60); // minutes arrondies
-          let estText = `${estMinutes} min`;
-          if (estMinutes >= 60) {
-            const h = Math.floor(estMinutes / 60);
-            const m = estMinutes % 60;
-            estText = m === 0 ? `${h} h` : `${h} h ${m} min`;
-          }
-
-          infoDiv.innerHTML = `<hr><strong>À pied :</strong> ${distText}<br><small>Est. ${estText}</small>`;
-          $panel
-            .querySelector(".bus-list")
-            .insertAdjacentElement("afterend", infoDiv);
-
-          // Ne pas démarrer automatiquement le suivi : l'utilisateur peut lancer le suivi via
-          // le bouton 'Commencer le suivi' dans le panneau (voir plus bas).
-        }
+        // Draw the walking route (helper handles drawing & info block)
+        await this._fetchAndDrawWalkingRoute(lat1, lon1, lat2, lon2, stop, $panel);
       } catch (err) {
         console.error("Erreur OSRM itinéraire :", err);
       }
