@@ -28,7 +28,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
   if (installBtn) {
     installBtn.style.display = "inline-block";
     installBtn.disabled = false;
-    installBtn.textContent = 'Installer';
+    installBtn.textContent = "Installer";
   }
 });
 
@@ -51,7 +51,7 @@ if (installBtn) {
         }
         deferredPrompt = null;
       } catch (err) {
-        console.warn('Erreur lors du prompt d\'installation', err);
+        console.warn("Erreur lors du prompt d'installation", err);
       } finally {
         installBtn.disabled = false;
       }
