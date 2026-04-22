@@ -27,6 +27,11 @@ class Geo {
     this.map = null; // Contiendra l'objet Leaflet une fois créé
     this.distance = 1; // Rayon de recherche par défaut (1km)
     this.lastPosition = null; // Stocke les dernières coordonnées pour les calculs
+  this.userMarker = null; // Marqueur représentant l'utilisateur sur la carte
+  this.watchId = null; // id du watchPosition
+  this.followingRoute = false; // si vrai, on suit la progression vers une destination
+  this.currentDestination = null; // L.latLng de la destination suivie
+  this.arrivalThreshold = 12; // distance en mètres pour considérer l'arrivée
 
     // --- LES CALQUES (LAYER GROUPS) ---
     // On crée des "tiroirs" pour ranger nos éléments.
@@ -65,6 +70,96 @@ class Geo {
 
     // On lance la préparation des images des marqueurs
     this._initIcons();
+  }
+
+  /* -------------------- GESTION DU SUIVI GPS EN TEMPS RÉEL -------------------- */
+  _startWatchingPosition() {
+    if (!navigator.geolocation) return;
+    // Si on a déjà un watch actif, on ne le recrée pas
+    if (this.watchId !== null) return;
+
+    try {
+      this.watchId = navigator.geolocation.watchPosition(
+        (pos) => this._onPositionUpdate(pos),
+        (err) => console.warn('watchPosition erreur', err),
+        {
+          enableHighAccuracy: true,
+          maximumAge: 1000,
+          timeout: 10000,
+        },
+      );
+    } catch (e) {
+      console.warn('Impossible de démarrer watchPosition', e);
+    }
+  }
+
+  _stopWatchingPosition() {
+    try {
+      if (this.watchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(this.watchId);
+      }
+    } catch (e) {
+      // ignore
+    }
+    this.watchId = null;
+  }
+
+  _onPositionUpdate(position) {
+    // Met à jour la dernière position connue
+    this.lastPosition = position;
+
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+
+    // Met à jour le marqueur utilisateur (si présent)
+    if (this.userMarker) {
+      this.userMarker.setLatLng([lat, lon]);
+    } else {
+      this.userMarker = L.marker([lat, lon], { icon: this.icons.user }).addTo(this.map);
+    }
+
+    // Si on suit un itinéraire, centrer légèrement la vue sur l'utilisateur
+    if (this.followingRoute && this.map) {
+      try {
+        this.map.panTo([lat, lon]);
+      } catch (e) {}
+    }
+
+    // Si on suit une destination, vérifier l'arrivée
+    if (this.followingRoute && this.currentDestination) {
+      const userLatLng = L.latLng(lat, lon);
+      const dist = userLatLng.distanceTo(this.currentDestination); // en mètres
+      // console.log('distance to dest', dist);
+      if (dist <= this.arrivalThreshold) {
+        // Arrivé
+        this.followingRoute = false;
+        this.currentDestination = null;
+        // Efface le tracé piéton
+        try {
+          if (this.layers.walking) this.layers.walking.clearLayers();
+        } catch (e) {}
+        // Affiche le message d'arrivée
+        this._showArrivalMessage();
+      }
+    }
+  }
+
+  _showArrivalMessage() {
+    // Crée un message temporaire fixé en bas-center
+    try {
+      let msg = document.querySelector('.arrival-msg');
+      if (msg) msg.remove();
+      msg = document.createElement('div');
+      msg.className = 'arrival-msg';
+      msg.textContent = "vous êtes arriver a destination";
+      document.body.appendChild(msg);
+      // Supprime après 4s
+      setTimeout(() => {
+        if (msg) msg.remove();
+      }, 4000);
+    } catch (e) {
+      alert('vous êtes arriver a destination');
+    }
   }
 
   /**
@@ -320,8 +415,11 @@ class Geo {
       controls.appendChild(favToggle);
     }
 
-    // Marqueur fixe pour notre position initiale
-    L.marker([latitude, longitude], { icon: this.icons.user }).addTo(this.map);
+  // Marqueur fixe pour notre position initiale (on le stocke pour pouvoir le déplacer)
+  this.userMarker = L.marker([latitude, longitude], { icon: this.icons.user }).addTo(this.map);
+
+  // Démarre le suivi en continu (watchPosition) pour mettre à jour la position utilisateur
+  this._startWatchingPosition();
 
     // On charge les arrêts autour de nous
     this.loadStops(position);
@@ -560,6 +658,11 @@ class Geo {
         $panel.classList.add("hidden");
         if (this.layers.walking) this.layers.walking.clearLayers(); // On efface le tracé bleu aussi
       });
+      // Si l'utilisateur ferme le panneau, on arrête de suivre la route
+      $panel.querySelector(".close-panel").addEventListener("click", () => {
+        this.followingRoute = false;
+        this.currentDestination = null;
+      });
 
       // --- BOUTONS FAVORIS PAR LIGNE (localStorage favoriteLines) ---
       try {
@@ -649,7 +752,7 @@ class Geo {
         const res = await fetch(osrmUrl);
         const routeData = await res.json();
 
-        if (routeData && routeData.routes && routeData.routes.length > 0) {
+          if (routeData && routeData.routes && routeData.routes.length > 0) {
           const route = routeData.routes[0];
           const coords = route.geometry.coordinates.map((c) => [c[1], c[0]]); // geojson [lon,lat] -> [lat,lon]
 
@@ -695,6 +798,21 @@ class Geo {
           $panel
             .querySelector(".bus-list")
             .insertAdjacentElement("afterend", infoDiv);
+
+          // Démarrer le suivi de cet itinéraire : la destination est l'arrêt
+          try {
+            this.currentDestination = L.latLng(lat2, lon2);
+            this.followingRoute = true;
+            // recentrer sur l'utilisateur pour suivre la progression
+            if (this.lastPosition) {
+              this.map.panTo([
+                this.lastPosition.coords.latitude,
+                this.lastPosition.coords.longitude,
+              ]);
+            }
+          } catch (e) {
+            // ignore
+          }
         }
       } catch (err) {
         console.error("Erreur OSRM itinéraire :", err);
