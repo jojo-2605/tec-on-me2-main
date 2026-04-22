@@ -56,6 +56,36 @@
   color: #fff;
 }
 
+/* Floating favorites button (default: pill with star + label) */
+.favorites-toggle {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 28px;
+  border: none;
+  background: linear-gradient(135deg, #ffd600 0%, #f5c300 100%);
+  color: #3b1a00;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.favorites-toggle .fav-icon {
+  font-size: 16px;
+  margin-right: 6px;
+}
+.favorites-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+}
+
 /* Mobile specific adjustments */
 @media (max-width: 600px) {
   /* Make the map fill the screen accounting for mobile chrome */

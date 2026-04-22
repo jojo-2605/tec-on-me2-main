@@ -190,7 +190,8 @@ class Geo {
       }),
       user: L.icon({
         ...configCommune,
-        iconUrl: "./icons/icon-map-user-location.svg",
+        // Use a distinct user icon to differentiate from stops
+        iconUrl: "./icons/icon-me.svg",
       }),
     };
   }
@@ -403,18 +404,20 @@ class Geo {
     this.layers.clicked.addTo(this.map);
     this.layers.walking.addTo(this.map);
 
-    // Ajout d'un bouton "Mes favoris" dans les contrôles de la carte (si présent)
-    const controls = document.querySelector(".map-controls");
-    if (controls && !document.getElementById("favorites-toggle")) {
+    // Ajout d'un bouton flottant "Mes favoris" en bas à droite (attaché au body)
+    if (!document.getElementById("favorites-toggle")) {
       const favToggle = document.createElement("button");
       favToggle.id = "favorites-toggle";
       favToggle.className = "favorites-toggle";
-      favToggle.textContent = "Mes favoris";
+      favToggle.type = "button";
+      favToggle.title = "Mes favoris";
+      // Étoile + texte
+      favToggle.innerHTML = '<span class="fav-icon">★</span><span class="fav-label">Favoris</span>';
       favToggle.addEventListener("click", (ev) => {
         ev.preventDefault();
         this.showFavorites();
       });
-      controls.appendChild(favToggle);
+      document.body.appendChild(favToggle);
     }
 
     // Marqueur fixe pour notre position initiale (on le stocke pour pouvoir le déplacer)
@@ -553,7 +556,26 @@ class Geo {
         this._renderFavoritesPanel();
       });
 
+      // Bouton pour démarrer le suivi directement depuis les favoris
+      const followFavBtn = document.createElement('button');
+      followFavBtn.className = 'fav-follow-btn';
+      followFavBtn.textContent = 'Suivre';
+      followFavBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        let shapeId = null;
+        if (fav.shape_id) shapeId = fav.shape_id;
+        else if (fav.id && fav.id.startsWith('shape__')) shapeId = fav.id.replace('shape__', '');
+        if (shapeId) {
+          // draw route and start following the route's last point
+          this.drawRoute(shapeId, true);
+          $panel.classList.add('hidden');
+        } else {
+          alert('Impossible de démarrer le suivi : shape inconnu pour cette favorite.');
+        }
+      });
+
       actions.appendChild(viewBtn);
+      actions.appendChild(followFavBtn);
       actions.appendChild(delBtn);
 
       row.appendChild(label);
@@ -653,6 +675,41 @@ class Geo {
             <hr>
             <div class="bus-list">${busHtml}</div>
         `;
+
+      // Ajout du bouton de suivi (commencer / arrêter)
+      const followBtn = document.createElement('button');
+      followBtn.className = 'follow-btn';
+      const updateFollowText = () => {
+        const isFollowingHere = this.followingRoute && this.currentDestination &&
+          this.currentDestination.lat === stop.coordinates.lat && this.currentDestination.lng === stop.coordinates.lon;
+        followBtn.textContent = isFollowingHere ? 'Arrêter le suivi' : 'Commencer le suivi';
+      };
+      updateFollowText();
+      followBtn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        // Toggle following to this stop
+        const dest = L.latLng(stop.coordinates.lat, stop.coordinates.lon);
+        if (this.followingRoute && this.currentDestination && this.currentDestination.equals(dest)) {
+          // Stop
+          this.followingRoute = false;
+          this.currentDestination = null;
+          followBtn.textContent = 'Commencer le suivi';
+        } else {
+          // Start following
+          this.currentDestination = dest;
+          this.followingRoute = true;
+          // Ensure watch is active
+          this._startWatchingPosition();
+          // Center map on user so they see their movement
+          if (this.lastPosition) {
+            this.map.panTo([this.lastPosition.coords.latitude, this.lastPosition.coords.longitude]);
+          }
+          followBtn.textContent = 'Arrêter le suivi';
+        }
+      });
+      // Insert follow button after title
+      const titleEl = $panel.querySelector('h4');
+      if (titleEl) titleEl.insertAdjacentElement('afterend', followBtn);
 
       // 3. Affichage (en retirant la classe hidden)
       $panel.classList.remove("hidden");
@@ -803,20 +860,8 @@ class Geo {
             .querySelector(".bus-list")
             .insertAdjacentElement("afterend", infoDiv);
 
-          // Démarrer le suivi de cet itinéraire : la destination est l'arrêt
-          try {
-            this.currentDestination = L.latLng(lat2, lon2);
-            this.followingRoute = true;
-            // recentrer sur l'utilisateur pour suivre la progression
-            if (this.lastPosition) {
-              this.map.panTo([
-                this.lastPosition.coords.latitude,
-                this.lastPosition.coords.longitude,
-              ]);
-            }
-          } catch (e) {
-            // ignore
-          }
+          // Ne pas démarrer automatiquement le suivi : l'utilisateur peut lancer le suivi via
+          // le bouton 'Commencer le suivi' dans le panneau (voir plus bas).
         }
       } catch (err) {
         console.error("Erreur OSRM itinéraire :", err);
@@ -825,7 +870,7 @@ class Geo {
   }
 
   // Trace le parcours complet d'une ligne de bus (depuis notre API)
-  async drawRoute(shapeId) {
+  async drawRoute(shapeId, followAfterDraw = false) {
     this.layers.route.clearLayers(); // On efface le trajet précédent
 
     try {
@@ -855,6 +900,21 @@ class Geo {
 
         // On ajuste la vue pour voir toute la ligne de bus
         this.map.flyToBounds(points, { padding: [50, 50] });
+
+        // Si demandé, démarrer le suivi vers le terminus (dernier point)
+        if (followAfterDraw) {
+          try {
+            const last = points[points.length - 1];
+            this.currentDestination = L.latLng(last[0], last[1]);
+            this.followingRoute = true;
+            this._startWatchingPosition();
+            if (this.lastPosition) {
+              this.map.panTo([this.lastPosition.coords.latitude, this.lastPosition.coords.longitude]);
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
       }
     } catch (error) {
       console.error("Erreur lors du tracé du trajet :", error);
