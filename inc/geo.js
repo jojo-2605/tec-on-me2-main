@@ -306,18 +306,20 @@ class Geo {
     this.layers.clicked.addTo(this.map);
     this.layers.walking.addTo(this.map);
 
-    // Ajout d'un bouton "Mes favoris" dans les contrôles de la carte (si présent)
-    const controls = document.querySelector(".map-controls");
-    if (controls && !document.getElementById("favorites-toggle")) {
+    // Ajout d'un bouton flottant "Mes favoris" en bas à droite (attaché au body)
+    if (!document.getElementById("favorites-toggle")) {
       const favToggle = document.createElement("button");
       favToggle.id = "favorites-toggle";
       favToggle.className = "favorites-toggle";
-      favToggle.textContent = "Mes favoris";
+      favToggle.type = "button";
+      favToggle.title = "Mes favoris";
+      // Utilise une étoile comme icône
+      favToggle.innerHTML = "★";
       favToggle.addEventListener("click", (ev) => {
         ev.preventDefault();
         this.showFavorites();
       });
-      controls.appendChild(favToggle);
+      document.body.appendChild(favToggle);
     }
 
     // Marqueur fixe pour notre position initiale
